@@ -39,6 +39,7 @@ let visitedZones = new Set();
 let currentInteractable = null;
 let showMiniMap = false;
 let totalZones = 9;
+let finalMessageShown = false;
 
 // Building collision data
 let buildingColliders = []; // Array of {x, z, w, d, doorX, doorZ, doorW} for collision
@@ -1254,10 +1255,10 @@ function createAllZones() {
             color: 0xe6e6fa
         },
         { 
-            name: '🎨 Sketching Building', 
+            id: 'meeting-portal',
             name: '🌸 Meeting Portal', 
             x: 0, z: 0, 
-            message: '"The queen is sketching don\'t move."',
+            radius: 12,
             message: '',
             isFinal: true,
             color: 0xffd700
@@ -4700,6 +4701,9 @@ function showZoneAlert(zoneName) {
 }
 
 function showFinalMessage() {
+    if (finalMessageShown) return;
+    finalMessageShown = true;
+    
     document.getElementById('hud').classList.add('hidden');
     document.getElementById('popup-container').classList.add('hidden');
     document.getElementById('mini-map').classList.add('hidden');
@@ -5182,6 +5186,18 @@ function checkZones() {
                 if (inZone.message) {
                     setTimeout(() => showPopup(inZone.message), 500);
                 }
+                
+                // Check if this was the last zone needed - player already visited final zone
+                const allDiscovered = zones.every(z => visitedZones.has(z.id));
+                if (allDiscovered) {
+                    setTimeout(showFinalMessage, 2000);
+                }
+            }
+        } else if (inZone.isFinal) {
+            // Re-entering final zone - check if all zones are now discovered
+            const allDiscovered = zones.every(z => visitedZones.has(z.id));
+            if (allDiscovered) {
+                setTimeout(showFinalMessage, 1000);
             }
         }
     } else if (!inZone) {
