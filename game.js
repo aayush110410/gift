@@ -5256,9 +5256,15 @@ function checkZones() {
         document.getElementById('interaction-prompt').classList.add('hidden');
     }
     
-    // Always check if flag should be activated (in case all zones are now discovered)
-    const allOtherZonesDiscovered = zones.every(z => z.isFinal || visitedZones.has(z.id));
-    if (allOtherZonesDiscovered && !victoryFlagActive) {
+    // Count discovered exploration zones (not the final flag)
+    let discoveredCount = 0;
+    visitedZones.forEach(id => {
+        const zone = zones.find(z => z.id === id);
+        if (zone && !zone.isFinal) discoveredCount++;
+    });
+    
+    // Activate flag when all 9 exploration zones discovered
+    if (discoveredCount >= 9 && !victoryFlagActive) {
         activateVictoryFlag();
     }
     
@@ -5273,7 +5279,7 @@ function checkZones() {
             
             if (inZone.isFinal) {
                 // At the Victory Flag
-                if (victoryFlagActive) {
+                if (victoryFlagActive || discoveredCount >= 9) {
                     // All zones discovered, show final message
                     setTimeout(showFinalMessage, 1500);
                 } else {
@@ -5286,8 +5292,8 @@ function checkZones() {
                 }
             }
         } else if (inZone.isFinal) {
-            // Re-entering Victory Flag - check if active
-            if (victoryFlagActive) {
+            // Re-entering Victory Flag - check if active or all zones discovered
+            if (victoryFlagActive || discoveredCount >= 9) {
                 setTimeout(showFinalMessage, 1000);
             }
         }
