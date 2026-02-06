@@ -4844,6 +4844,11 @@ function updateProgress() {
     });
     document.getElementById('zones-discovered').textContent = String(discovered);
     document.getElementById('progress-fill').style.width = (Math.min(1, discovered / totalZones) * 100) + '%';
+    
+    // AUTO TRIGGER: Show final message when all 9 zones discovered
+    if (discovered >= 9 && !finalMessageShown) {
+        setTimeout(showFinalMessage, 1500);
+    }
 }
 
 function updateMiniMap() {
