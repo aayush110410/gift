@@ -40,6 +40,8 @@ let currentInteractable = null;
 let showMiniMap = false;
 let totalZones = 9;
 let finalMessageShown = false;
+let victoryFlagGroup = null;
+let victoryFlagActive = false;
 
 // Building collision data
 let buildingColliders = []; // Array of {x, z, w, d, doorX, doorZ, doorW} for collision
@@ -1255,10 +1257,10 @@ function createAllZones() {
             color: 0xe6e6fa
         },
         { 
-            id: 'meeting-portal',
-            name: '🌸 Meeting Portal', 
+            id: 'victory-flag',
+            name: '🏁 Victory Flag', 
             x: 0, z: 0, 
-            radius: 12,
+            radius: 8,
             message: '',
             isFinal: true,
             color: 0xffd700
@@ -1286,7 +1288,7 @@ function buildZone(zone) {
         case 'shopping-street': buildShoppingMarket(zone.x, zone.z); break;
         case 'food-corner': buildFoodBuilding(zone.x, zone.z, faceAngle); break;
         case 'dream-cloud': buildDreamCloud(zone.x, zone.z); break;
-        case 'meeting-portal': buildMeetingPortal(zone.x, zone.z); break;
+        case 'victory-flag': buildVictoryFlag(zone.x, zone.z); break;
     }
 }
 
@@ -4032,67 +4034,152 @@ function createStar(x, y, z, i) {
     scene.add(star);
 }
 
-function buildMeetingPortal(x, z) {
-    // Golden base platform
+function buildVictoryFlag(x, z) {
+    victoryFlagGroup = new THREE.Group();
+    victoryFlagGroup.position.set(x, 0, z);
+    
+    // Base platform (circular stone)
     const base = new THREE.Mesh(
-        new THREE.CylinderGeometry(6, 6, 0.35, 32),
+        new THREE.CylinderGeometry(3, 3.5, 0.5, 32),
+        new THREE.MeshStandardMaterial({ 
+            color: 0x808080, 
+            roughness: 0.8
+        })
+    );
+    base.position.y = 0.25;
+    victoryFlagGroup.add(base);
+    
+    // Flag pole
+    const pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.15, 0.2, 12, 16),
+        new THREE.MeshStandardMaterial({ 
+            color: 0x8B4513, 
+            roughness: 0.6,
+            metalness: 0.1
+        })
+    );
+    pole.position.y = 6;
+    victoryFlagGroup.add(pole);
+    
+    // Pole top ornament
+    const topBall = new THREE.Mesh(
+        new THREE.SphereGeometry(0.35, 16, 16),
         new THREE.MeshStandardMaterial({ 
             color: 0xffd700, 
-            emissive: 0xffa500, 
-            emissiveIntensity: 0.5,
-            metalness: 0.4,
-            roughness: 0.3
+            metalness: 0.8,
+            roughness: 0.2
         })
     );
-    base.position.set(x, 0.18, z);
-    scene.add(base);
+    topBall.position.y = 12.2;
+    victoryFlagGroup.add(topBall);
     
-    // Portal ring
-    const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(4.5, 0.5, 16, 48),
-        new THREE.MeshStandardMaterial({ 
-            color: 0xff69b4, 
-            emissive: 0xff1493, 
-            emissiveIntensity: 0.7 
-        })
+    // Flag fabric (starts gray, turns golden when active)
+    const flagGeometry = new THREE.PlaneGeometry(4, 2.5, 8, 5);
+    const flagMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x666666,
+        side: THREE.DoubleSide,
+        roughness: 0.7
+    });
+    const flag = new THREE.Mesh(flagGeometry, flagMaterial);
+    flag.position.set(2.2, 10.5, 0);
+    flag.userData.isFlag = true;
+    victoryFlagGroup.add(flag);
+    animatedObjects.push({ obj: flag, type: 'victoryFlag' });
+    
+    // Heart symbol on flag (hidden until active)
+    const heartOnFlag = createFlagHeart();
+    heartOnFlag.position.set(2.2, 10.5, 0.05);
+    heartOnFlag.scale.set(0.8, 0.8, 0.8);
+    heartOnFlag.visible = false;
+    heartOnFlag.userData.isHeartSymbol = true;
+    victoryFlagGroup.add(heartOnFlag);
+    
+    // Inactive indicator text
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#333';
+    ctx.fillRect(0, 0, 256, 64);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 20px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Explore all zones first!', 128, 40);
+    
+    const signTexture = new THREE.CanvasTexture(canvas);
+    const sign = new THREE.Mesh(
+        new THREE.PlaneGeometry(3, 0.8),
+        new THREE.MeshBasicMaterial({ map: signTexture, transparent: true })
     );
-    ring.position.set(x, 4.5, z);
-    ring.rotation.x = Math.PI / 2;
-    animatedObjects.push({ obj: ring, type: 'portalRing' });
-    scene.add(ring);
+    sign.position.set(0, 2, 1.5);
+    sign.userData.isInactiveSign = true;
+    victoryFlagGroup.add(sign);
     
-    // Inner glow portal surface
-    const inner = new THREE.Mesh(
-        new THREE.CircleGeometry(4, 48),
-        new THREE.MeshBasicMaterial({ 
-            color: 0xffc0cb, 
-            transparent: true, 
-            opacity: 0.5,
-            side: THREE.DoubleSide
-        })
+    // Glow light (hidden until active)
+    const flagLight = new THREE.PointLight(0xffd700, 0, 20);
+    flagLight.position.set(x, 10, z);
+    flagLight.userData.isFlagLight = true;
+    scene.add(flagLight);
+    victoryFlagGroup.userData.light = flagLight;
+    
+    scene.add(victoryFlagGroup);
+}
+
+function createFlagHeart() {
+    const group = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ 
+        color: 0xff1493, 
+        emissive: 0xff69b4, 
+        emissiveIntensity: 0.5 
+    });
+    
+    const left = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), mat);
+    left.position.set(-0.3, 0.25, 0);
+    group.add(left);
+    
+    const right = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), mat);
+    right.position.set(0.3, 0.25, 0);
+    group.add(right);
+    
+    const bottom = new THREE.Mesh(
+        new THREE.ConeGeometry(0.55, 0.8, 16),
+        mat
     );
-    inner.position.set(x, 4.5, z);
-    inner.rotation.x = Math.PI / 2;
-    animatedObjects.push({ obj: inner, type: 'portalInner' });
-    scene.add(inner);
+    bottom.rotation.z = Math.PI;
+    bottom.position.y = -0.2;
+    group.add(bottom);
     
-    // Floating heart
-    createHeart(x, 6.5, z);
+    return group;
+}
+
+function activateVictoryFlag() {
+    if (!victoryFlagGroup || victoryFlagActive) return;
+    victoryFlagActive = true;
     
-    // Sparkle particles around portal
-    for (let i = 0; i < 15; i++) {
-        createSparkle(x, z, i);
+    // Find and update flag components
+    victoryFlagGroup.traverse(child => {
+        if (child.userData.isFlag && child.material) {
+            // Change flag color to golden/pink gradient
+            child.material.color.setHex(0xff69b4);
+            child.material.emissive = new THREE.Color(0xff1493);
+            child.material.emissiveIntensity = 0.4;
+        }
+        if (child.userData.isHeartSymbol) {
+            child.visible = true;
+        }
+        if (child.userData.isInactiveSign) {
+            child.visible = false;
+        }
+    });
+    
+    // Activate glow light
+    if (victoryFlagGroup.userData.light) {
+        victoryFlagGroup.userData.light.intensity = 2;
     }
     
-    // Portal light
-    const light = new THREE.PointLight(0xff69b4, 1.5, 25);
-    light.position.set(x, 4.5, z);
-    scene.add(light);
-    
-    // Secondary glow
-    const glow = new THREE.PointLight(0xffd700, 0.8, 15);
-    glow.position.set(x, 1, z);
-    scene.add(glow);
+    // Show notification
+    showPopup('🏁 The Victory Flag is now ACTIVE! Go claim your prize! 🎉');
+    showZoneAlert('Victory Flag Activated!');
 }
 
 function createHeart(x, y, z) {
@@ -4749,7 +4836,12 @@ function updateProgress() {
         return;
     }
 
-    const discovered = visitedZones.size;
+    // Count only non-final zones (exploration zones)
+    let discovered = 0;
+    visitedZones.forEach(id => {
+        const zone = zones.find(z => z.id === id);
+        if (zone && !zone.isFinal) discovered++;
+    });
     document.getElementById('zones-discovered').textContent = String(discovered);
     document.getElementById('progress-fill').style.width = (Math.min(1, discovered / totalZones) * 100) + '%';
 }
@@ -5174,12 +5266,12 @@ function checkZones() {
             updateProgress();
             
             if (inZone.isFinal) {
-                // Check if all other zones discovered
-                const allDiscovered = zones.every(z => z.isFinal || visitedZones.has(z.id));
-                if (allDiscovered) {
-                    setTimeout(showFinalMessage, 1800);
+                // At the Victory Flag
+                if (victoryFlagActive) {
+                    // All zones discovered, show final message
+                    setTimeout(showFinalMessage, 1500);
                 } else {
-                    showPopup('🌸 The Meeting Portal awaits... Explore all zones first! 🌸');
+                    showPopup('🏁 The Victory Flag is inactive. Explore all other zones first! 🌸');
                 }
             } else {
                 showZoneAlert(inZone.name);
@@ -5187,18 +5279,15 @@ function checkZones() {
                     setTimeout(() => showPopup(inZone.message), 500);
                 }
                 
-                // Check if this was the last zone needed - player already visited final zone
-                const allDiscovered = zones.every(z => visitedZones.has(z.id));
-                if (allDiscovered) {
-                    setTimeout(showFinalMessage, 2000);
+                // Check if all non-final zones are now discovered
+                const allOtherZonesDiscovered = zones.every(z => z.isFinal || visitedZones.has(z.id));
+                if (allOtherZonesDiscovered && !victoryFlagActive) {
+                    setTimeout(activateVictoryFlag, 1000);
                 }
             }
-        } else if (inZone.isFinal) {
-            // Re-entering final zone - check if all zones are now discovered
-            const allDiscovered = zones.every(z => visitedZones.has(z.id));
-            if (allDiscovered) {
-                setTimeout(showFinalMessage, 1000);
-            }
+        } else if (inZone.isFinal && victoryFlagActive) {
+            // Re-entering Victory Flag when active
+            setTimeout(showFinalMessage, 1000);
         }
     } else if (!inZone) {
         currentZone = null;
@@ -5252,6 +5341,19 @@ function updateAnimations(t) {
             case 'portalInner':
                 obj.material.opacity = 0.4 + Math.sin(t * 2.5) * 0.25;
                 obj.rotation.z += 0.006;
+                break;
+                
+            case 'victoryFlag':
+                // Wave the flag - modify vertices for waving effect
+                if (obj.geometry && obj.geometry.attributes && obj.geometry.attributes.position) {
+                    const positions = obj.geometry.attributes.position.array;
+                    const waveIntensity = victoryFlagActive ? 0.3 : 0.1;
+                    for (let i = 0; i < positions.length; i += 3) {
+                        const x = positions[i];
+                        positions[i + 2] = Math.sin(t * 3 + x * 2) * waveIntensity * (x + 2);
+                    }
+                    obj.geometry.attributes.position.needsUpdate = true;
+                }
                 break;
                 
             case 'heart':
