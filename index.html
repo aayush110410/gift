@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Exploring Shubhanshi's World From the Eyes of Aayush</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Start Screen -->
+    <div id="start-screen">
+        <div class="start-content">
+            <div class="floating-hearts">
+                <span>💕</span><span>🌸</span><span>✨</span><span>💖</span><span>🌷</span>
+            </div>
+            <h1>🌸 Exploring Shubhanshi's World 🌸</h1>
+            <p class="tagline">A warm, peaceful exploration experience</p>
+            
+            <div class="controls-info">
+                <h3>🎮 Controls</h3>
+                <div class="control-grid">
+                    <div class="control-item"><span class="key">W A S D</span> Move</div>
+                    <div class="control-item"><span class="key">Mouse</span> Look Around</div>
+                    <div class="control-item"><span class="key">SPACE</span> Interact</div>
+                    <div class="control-item"><span class="key">I</span> View Stats</div>
+                    <div class="control-item"><span class="key">M</span> Mini Map</div>
+                </div>
+            </div>
+            
+            <div class="mission-box">
+                <h3>🎯 Your Mission</h3>
+                <p class="mission">Mission: Explore the World of Shubhanshi and </p>
+                <p>Then go to the <strong>Meeting Portal</strong> to complete your journey.</p>
+            </div>
+            
+            <button id="start-button">✨ Begin Exploration ✨</button>
+        </div>
+    </div>
+
+    <!-- Game Canvas -->
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" class="hidden">
+        <div class="hud-top-left">
+            <div class="level-indicator">
+                <span class="level-icon">🧭</span>
+                <span id="level-indicator">Shubhanshi's World</span>
+            </div>
+            <div class="zone-indicator">
+                <span class="zone-icon">📍</span>
+                <span id="current-zone">Shubhanshi's World</span>
+            </div>
+        </div>
+        <div class="hud-top-right">
+            <div class="progress-tracker">
+                <span class="progress-label">Understanding</span>
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                <span class="progress-count"><span id="zones-discovered">0</span>/<span id="zones-total">9</span></span>
+            </div>
+        </div>
+        <div class="hud-bottom">
+            <div class="controls-hint">
+                WASD: Move | Mouse: Look | SPACE: Interact | M: Map | I: Stats
+            </div>
+        </div>
+    </div>
+
+    <!-- Mini Map -->
+    <div id="mini-map" class="hidden">
+        <div class="map-header">🗺️ World Map</div>
+        <canvas id="map-canvas" width="220" height="220"></canvas>
+        <div class="map-legend">
+            <span class="legend-item"><span class="dot red"></span>You</span>
+            <span class="legend-item"><span class="dot yellow"></span>Zones</span>
+            <span class="legend-item"><span class="dot green"></span>Visited</span>
+        </div>
+    </div>
+
+    <!-- Popup System -->
+    <div id="popup-container" class="hidden">
+        <div class="popup-content">
+            <p id="popup-text"></p>
+        </div>
+    </div>
+
+    <!-- Stat Panel -->
+    <div id="stat-panel" class="hidden">
+        <div class="stat-header">
+            <h2>✨ AAYUSH TRAITS ✨</h2>
+            <button id="close-stats">×</button>
+        </div>
+        <ul class="stat-list">
+            <li>👨‍🍳 Cooks like a chef</li>
+            <li>💭 Emotionally intelligent</li>
+            <li>👁️ Observant & detail-oriented</li>
+            <li>🔍 Curious about everything</li>
+            <li>🚀 Ambitious dreamer</li>
+            <li>🏃 Athletic & active</li>
+            <li>🧵 Knows sewing, cleaning & handling kids</li>
+            <li>💄 Surprisingly knows makeup basics</li>
+            <li>🤝 Loyal to the core</li>
+            <li>🎩 True Gentleman</li>
+        </ul>
+        <div class="stat-footer">
+            <p>Status: <span id="player-status">Exploring new worlds</span></p>
+        </div>
+    </div>
+
+    <!-- Interaction Prompt -->
+    <div id="interaction-prompt" class="hidden">
+        <div class="prompt-box">
+            <span class="prompt-key">SPACE</span>
+            <span>to interact</span>
+        </div>
+    </div>
+
+    <!-- Zone Discovery Alert -->
+    <div id="zone-alert" class="hidden">
+        <div class="alert-box">
+            <span class="alert-icon">🌟</span>
+            <span id="alert-text">New Zone Discovered!</span>
+        </div>
+    </div>
+
+    <!-- Final Message -->
+    <div id="final-message" class="hidden">
+        <div class="final-content">
+            <div class="final-hearts">💕 💕 💕</div>
+            <p class="line1">You explored.</p>
+            <p class="line2">You paid attention.</p>
+            <p class="line3">You understood the vibe.</p>
+            <div class="divider">✨ ✨ ✨</div>
+            <p class="line4">The rest of the mission</p>
+            <p class="line5">will be accomplished</p>
+            <p class="line6">by the real Aayush.</p>
+            <div class="big-heart">💖</div>
+            <button id="continue-button">Continue in Real Life</button>
+        </div>
+    </div>
+
+    <!-- Challenge Overlay (quiz / choices / instructions) -->
+    <div id="challenge-overlay" class="hidden">
+        <div class="challenge-card">
+            <h2 id="challenge-title">Challenge</h2>
+            <p id="challenge-text">...</p>
+            <div id="challenge-options" class="challenge-options"></div>
+            <button id="challenge-close" class="challenge-close hidden">Close</button>
+        </div>
+    </div>
+
+    <!-- Rhythm Overlay -->
+    <div id="rhythm-overlay" class="hidden">
+        <div class="rhythm-card">
+            <h2>Dance Mode</h2>
+            <p>Press <strong>SPACE</strong> on the beat.</p>
+            <div class="rhythm-track">
+                <div id="rhythm-hit" class="rhythm-hit"></div>
+                <div class="rhythm-zone"></div>
+            </div>
+            <div class="rhythm-stats"><span id="rhythm-score">0</span>/6</div>
+        </div>
+    </div>
+
+    <!-- Warm flash for chai power-up -->
+    <div id="warm-flash" class="hidden"></div>
+
+    <!-- Sketch puzzle overlay -->
+    <div id="sketch-overlay" class="hidden">
+        <div class="sketch-card">
+            <h2>Sketch Comeback</h2>
+            <p>Drag the pieces into the correct slots.</p>
+            <div class="sketch-board">
+                <div class="sketch-slots">
+                    <div class="slot" data-slot="1"></div>
+                    <div class="slot" data-slot="2"></div>
+                    <div class="slot" data-slot="3"></div>
+                </div>
+                <div class="sketch-pieces">
+                    <div class="piece" draggable="true" data-piece="1">①</div>
+                    <div class="piece" draggable="true" data-piece="2">②</div>
+                    <div class="piece" draggable="true" data-piece="3">③</div>
+                </div>
+            </div>
+            <button id="sketch-done" class="hidden">Done</button>
+        </div>
+    </div>
+
+    <!-- Click to Start Overlay (for pointer lock) -->
+    <div id="click-overlay" class="hidden">
+        <div class="click-content">
+            <p>🖱️ Click anywhere to enable camera control</p>
+            <p class="sub">Press ESC to release mouse</p>
+        </div>
+    </div>
+
+    <!-- Mobile Controls -->
+    <div id="mobile-controls" class="hidden">
+        <!-- Virtual Joystick (left side) -->
+        <div id="joystick-zone">
+            <div id="joystick-base">
+                <div id="joystick-thumb"></div>
+            </div>
+        </div>
+        
+        <!-- Look Zone (right side - entire area for touch look) -->
+        <div id="look-zone"></div>
+        
+        <!-- Action Buttons (right side) -->
+        <div id="mobile-buttons">
+            <button id="mobile-interact" class="mobile-btn">⚡</button>
+            <button id="mobile-map" class="mobile-btn small">🗺️</button>
+        </div>
+    </div>
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
