@@ -65,6 +65,9 @@ let joystickActive = false;
 let joystickData = { x: 0, y: 0 };
 let lookTouchId = null;
 let lookLastPos = { x: 0, y: 0 };
+
+// Performance mode
+let lowPerformance = false;
 let pendingSpawnOverride = null; // { x, z }
 
 // Stall portals -> challenges
@@ -80,6 +83,20 @@ let overlayMode = 'none'; // 'none' | 'challenge' | 'rhythm' | 'sketch'
 // ============================================
 // COMPAT HELPERS (r128-safe)
 // ============================================
+
+// Performance helper: only enable shadows on desktop
+function setShadow(mesh, cast = true, receive = false) {
+    if (!lowPerformance) {
+        mesh.castShadow = cast;
+        mesh.receiveShadow = receive;
+    }
+}
+
+// Get geometry segments based on performance
+function getSegments(highDetail, lowDetail) {
+    return lowPerformance ? lowDetail : highDetail;
+}
+
 function roundedRectPath(ctx, x, y, w, h, r) {
     const radius = Math.max(0, Math.min(r, Math.min(w, h) / 2));
     ctx.moveTo(x + radius, y);
@@ -159,28 +176,47 @@ function setupCamera() {
 }
 
 function setupRenderer() {
+    // Detect low performance devices (mobile, low GPU, small screens)
+    isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
+        || (navigator.maxTouchPoints > 0 && window.matchMedia('(hover: none)').matches);
+    
+    // Low performance mode for weaker devices
+    lowPerformance = isMobile || window.innerWidth < 768 || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
+    
+    console.log(lowPerformance ? '📱 Low performance mode enabled' : '💻 High performance mode');
+    
     const canvas = document.getElementById('game-canvas');
     renderer = new THREE.WebGLRenderer({ 
         canvas: canvas, 
-        antialias: true,
-        powerPreference: 'high-performance'
+        antialias: !lowPerformance, // Disable antialiasing on low-end
+        powerPreference: lowPerformance ? 'low-power' : 'high-performance',
+        precision: lowPerformance ? 'mediump' : 'highp'
     });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    
+    // Lower pixel ratio on mobile (huge performance boost)
+    const maxPixelRatio = lowPerformance ? 1.0 : 2.0;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
+    
+    // Shadows: disable on very low-end, reduce quality on mobile
+    if (lowPerformance) {
+        renderer.shadowMap.enabled = false; // Disable shadows entirely on mobile
+    } else {
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    }
 
     // Better default look (Three r128)
     renderer.outputEncoding = THREE.sRGBEncoding;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMapping = lowPerformance ? THREE.LinearToneMapping : THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
-    renderer.physicallyCorrectLights = true;
+    renderer.physicallyCorrectLights = !lowPerformance;
 }
 
 function setupLighting(theme) {
-    // Warm ambient light
+    // Warm ambient light (increase on mobile since no shadows)
     const ambientColor = theme === 'cold' ? 0xddeeff : 0xffeedd;
-    const ambientIntensity = theme === 'cold' ? 0.65 : 0.6;
+    const ambientIntensity = lowPerformance ? 0.85 : (theme === 'cold' ? 0.65 : 0.6);
     const ambient = new THREE.AmbientLight(ambientColor, ambientIntensity);
     scene.add(ambient);
     
@@ -189,21 +225,25 @@ function setupLighting(theme) {
     const sunIntensity = theme === 'cold' ? 1.05 : 1.0;
     const sun = new THREE.DirectionalLight(sunColor, sunIntensity);
     sun.position.set(60, 100, -40);
-    sun.castShadow = true;
-    sun.shadow.mapSize.width = 2048;
-    sun.shadow.mapSize.height = 2048;
-    sun.shadow.camera.near = 0.5;
-    sun.shadow.camera.far = 250;
-    sun.shadow.camera.left = -80;
-    sun.shadow.camera.right = 80;
-    sun.shadow.camera.top = 80;
-    sun.shadow.camera.bottom = -80;
+    
+    // Only setup shadows if not in low performance mode
+    if (!lowPerformance) {
+        sun.castShadow = true;
+        sun.shadow.mapSize.width = 1024; // Reduced from 2048
+        sun.shadow.mapSize.height = 1024;
+        sun.shadow.camera.near = 0.5;
+        sun.shadow.camera.far = 250;
+        sun.shadow.camera.left = -80;
+        sun.shadow.camera.right = 80;
+        sun.shadow.camera.top = 80;
+        sun.shadow.camera.bottom = -80;
+    }
     scene.add(sun);
     
     // Hemisphere light for natural feel
     const hemiSky = theme === 'cold' ? 0xd9f2ff : 0xffeeb1;
     const hemiGround = theme === 'cold' ? 0x334455 : 0x80a080;
-    const hemi = new THREE.HemisphereLight(hemiSky, hemiGround, 0.45);
+    const hemi = new THREE.HemisphereLight(hemiSky, hemiGround, lowPerformance ? 0.6 : 0.45);
     scene.add(hemi);
 }
 
@@ -952,8 +992,9 @@ function createChatBubbleMesh(text) {
 // WORLD CREATION
 // ============================================
 function createGround() {
-    // Main ground
-    const groundGeo = new THREE.PlaneGeometry(250, 250, 50, 50);
+    // Main ground (lower segments on mobile)
+    const segments = getSegments(50, 10);
+    const groundGeo = new THREE.PlaneGeometry(250, 250, segments, segments);
     const groundMat = new THREE.MeshStandardMaterial({ 
         color: 0x7cb342,
         roughness: 0.9,
@@ -961,20 +1002,23 @@ function createGround() {
     });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
+    if (!lowPerformance) ground.receiveShadow = true;
     scene.add(ground);
     
-    // Decorative paths connecting zones
+    // Decorative paths (fewer on mobile)
     const pathMat = new THREE.MeshStandardMaterial({ color: 0xf5e6d3, roughness: 1 });
-    const pathPositions = [
+    const allPathPositions = [
         [0, 10], [20, 5], [40, 0], [-20, 10], [-40, 0],
         [0, 30], [20, 45], [-20, 45], [50, -20], [-30, -30],
         [30, 30], [-40, -20], [0, -20], [50, 20], [-50, 10]
     ];
     
+    const pathPositions = lowPerformance ? allPathPositions.slice(0, 5) : allPathPositions;
+    const pathSegments = getSegments(16, 8);
+    
     pathPositions.forEach(([x, z]) => {
         const path = new THREE.Mesh(
-            new THREE.CircleGeometry(3 + Math.random() * 2, 16),
+            new THREE.CircleGeometry(3 + Math.random() * 2, pathSegments),
             pathMat
         );
         path.rotation.x = -Math.PI / 2;
@@ -984,8 +1028,9 @@ function createGround() {
 }
 
 function createSkybox() {
-    // Sky dome
-    const skyGeo = new THREE.SphereGeometry(200, 32, 32);
+    // Sky dome (lower segments on mobile)
+    const skySegments = getSegments(32, 16);
+    const skyGeo = new THREE.SphereGeometry(200, skySegments, skySegments);
     const skyMat = new THREE.MeshBasicMaterial({
         color: 0xffd1dc,
         side: THREE.BackSide
@@ -994,26 +1039,31 @@ function createSkybox() {
     
     // Glowing sun
     const sunGroup = new THREE.Group();
+    const sunSegments = getSegments(32, 12);
     const sunCore = new THREE.Mesh(
-        new THREE.SphereGeometry(12, 32, 32),
+        new THREE.SphereGeometry(12, sunSegments, sunSegments),
         new THREE.MeshBasicMaterial({ color: 0xfffacd })
     );
     sunGroup.add(sunCore);
     
-    const sunGlow = new THREE.Mesh(
-        new THREE.SphereGeometry(18, 32, 32),
-        new THREE.MeshBasicMaterial({ 
-            color: 0xfff5cc, 
-            transparent: true, 
-            opacity: 0.3 
-        })
-    );
-    sunGroup.add(sunGlow);
+    // Skip sun glow on mobile
+    if (!lowPerformance) {
+        const sunGlow = new THREE.Mesh(
+            new THREE.SphereGeometry(18, 16, 16),
+            new THREE.MeshBasicMaterial({ 
+                color: 0xfff5cc, 
+                transparent: true, 
+                opacity: 0.3 
+            })
+        );
+        sunGroup.add(sunGlow);
+    }
     sunGroup.position.set(80, 120, -80);
     scene.add(sunGroup);
     
-    // Fluffy clouds
-    for (let i = 0; i < 15; i++) {
+    // Fluffy clouds (fewer on mobile)
+    const cloudCount = lowPerformance ? 5 : 15;
+    for (let i = 0; i < cloudCount; i++) {
         createCloud(
             Math.random() * 200 - 100,
             55 + Math.random() * 35,
@@ -1031,10 +1081,11 @@ function createCloud(x, y, z) {
         opacity: 0.95
     });
     
-    const puffCount = 4 + Math.floor(Math.random() * 3);
+    const puffCount = lowPerformance ? 2 : (4 + Math.floor(Math.random() * 3));
+    const puffSegments = getSegments(12, 6);
     for (let i = 0; i < puffCount; i++) {
         const puff = new THREE.Mesh(
-            new THREE.SphereGeometry(3 + Math.random() * 3, 12, 12),
+            new THREE.SphereGeometry(3 + Math.random() * 3, puffSegments, puffSegments),
             mat
         );
         puff.position.set(
@@ -1052,19 +1103,23 @@ function createCloud(x, y, z) {
 }
 
 function createDecorations() {
-    // Scattered trees around the world
-    const treePositions = [
+    // Scattered trees around the world (fewer on mobile)
+    const allTreePositions = [
         [-70, 30], [-75, -20], [75, 40], [70, -35],
         [-65, 60], [65, 60], [-80, 0], [80, -10],
         [0, -60], [-50, -50], [50, -55], [0, 70]
     ];
     
+    // Use half the trees on mobile
+    const treePositions = lowPerformance ? allTreePositions.slice(0, 6) : allTreePositions;
+    
     treePositions.forEach(([x, z]) => {
         createRandomTree(x, z);
     });
     
-    // Scattered flowers
-    for (let i = 0; i < 60; i++) {
+    // Scattered flowers (much fewer on mobile)
+    const flowerCount = lowPerformance ? 15 : 60;
+    for (let i = 0; i < flowerCount; i++) {
         const x = Math.random() * 180 - 90;
         const z = Math.random() * 180 - 90;
         // Avoid placing on zones
@@ -4095,8 +4150,11 @@ function createSparkle(cx, cz, i) {
 // AMBIENT PARTICLES
 // ============================================
 function createAmbientParticles() {
+    // Skip particles entirely on low performance mode
+    if (lowPerformance) return;
+    
     const geometry = new THREE.BufferGeometry();
-    const count = 200;
+    const count = 100; // Reduced from 200
     const positions = new Float32Array(count * 3);
     
     for (let i = 0; i < count; i++) {
