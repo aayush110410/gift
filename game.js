@@ -5256,6 +5256,12 @@ function checkZones() {
         document.getElementById('interaction-prompt').classList.add('hidden');
     }
     
+    // Always check if flag should be activated (in case all zones are now discovered)
+    const allOtherZonesDiscovered = zones.every(z => z.isFinal || visitedZones.has(z.id));
+    if (allOtherZonesDiscovered && !victoryFlagActive) {
+        activateVictoryFlag();
+    }
+    
     // Zone discovery logic
     if (inZone && inZone !== currentZone) {
         currentZone = inZone;
@@ -5278,16 +5284,12 @@ function checkZones() {
                 if (inZone.message) {
                     setTimeout(() => showPopup(inZone.message), 500);
                 }
-                
-                // Check if all non-final zones are now discovered
-                const allOtherZonesDiscovered = zones.every(z => z.isFinal || visitedZones.has(z.id));
-                if (allOtherZonesDiscovered && !victoryFlagActive) {
-                    setTimeout(activateVictoryFlag, 1000);
-                }
             }
-        } else if (inZone.isFinal && victoryFlagActive) {
-            // Re-entering Victory Flag when active
-            setTimeout(showFinalMessage, 1000);
+        } else if (inZone.isFinal) {
+            // Re-entering Victory Flag - check if active
+            if (victoryFlagActive) {
+                setTimeout(showFinalMessage, 1000);
+            }
         }
     } else if (!inZone) {
         currentZone = null;
